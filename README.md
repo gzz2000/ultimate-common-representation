@@ -1,4 +1,13 @@
+| 任务                           |                        |
+| ------------------------------ | ---------------------- |
+| Converter Improvement & Report | @tlzmybm, @gzz2000     |
+| Attack Hinton                  | @ChillingDream, @llgyc |
+|                                |                        |
+
+
+
 # ultimate-common-representation
+
 ML course project: investigation on common perceptions of same neural network model with different random seed
 
 ## Install PyTorch
