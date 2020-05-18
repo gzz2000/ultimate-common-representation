@@ -1,6 +1,7 @@
 
 ## local debug
 local/
+data/
 
 ## below: default .gitignore for python
 
