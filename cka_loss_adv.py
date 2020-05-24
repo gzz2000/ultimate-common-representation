@@ -12,7 +12,7 @@ cnn2 = CNN()
 cnn2.to(device)
 cnn2.train()
 
-cnn1.load_state_dict(torch.load('model1.pt'))
+cnn1.load_state_dict(torch.load('model_1.pt'))
 LR = 1e-3
 EPOCH = 20
 cka_coef = 0.5

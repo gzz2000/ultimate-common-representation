@@ -30,7 +30,7 @@ if __name__ == '__main__':
 	cnn2.to(device)
 	cnn2.eval()
 
-	cnn1.load_state_dict(torch.load('model1.pt'))
+	cnn1.load_state_dict(torch.load('model_1.pt'))
 	cnn2.load_state_dict(torch.load('model3.pt'))
 
 	for layer in cnn1.conv_layers:
