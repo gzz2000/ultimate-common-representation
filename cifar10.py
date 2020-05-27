@@ -4,7 +4,7 @@ import torch.utils.data as Data
 import torchvision
 from tqdm import trange
 
-torch.manual_seed(1)
+torch.manual_seed(23)
 device = torch.device('cuda')
 
 EPOCH = 30
@@ -104,7 +104,7 @@ if __name__ == '__main__':
 			running_loss += loss.clone().detach().cpu().numpy()
 			optimizer.step()
 		iteration.set_description(str(running_loss / len(train_loader)))
-	torch.save(cnn.state_dict(), 'model_1.pt')
+	torch.save(cnn.state_dict(), 'model_2.pt')
 
 	cnn.eval()
 	with torch.no_grad():
