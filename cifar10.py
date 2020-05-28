@@ -7,7 +7,7 @@ from tqdm import trange
 torch.manual_seed(23)
 device = torch.device('cuda')
 
-EPOCH = 30
+EPOCH = 1
 BATCH_SIZE = 64
 LR = 1e-3
 DOWNLOAD_MNIST = True
@@ -23,6 +23,8 @@ test_data = torchvision.datasets.CIFAR10(root='./data', train=False, transform=t
 
 train_loader = Data.DataLoader(dataset=train_data, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True, num_workers=4)
 test_loader = Data.DataLoader(dataset=test_data, batch_size=BATCH_SIZE)
+channel_size_1 = 16
+channel_size_2 = 32
 
 class CNN(nn.Module):
 	def __init__(self):
@@ -31,45 +33,45 @@ class CNN(nn.Module):
 		self.conv1 = nn.Sequential(
 			nn.Conv2d(
 				in_channels=3,
-				out_channels=32,
+				out_channels=channel_size_1,
 				kernel_size=3,
 				stride=1,
 				padding=1,
 			),
-			nn.BatchNorm2d(32),
+			nn.BatchNorm2d(channel_size_1),
 			nn.ReLU(True),
 			nn.Dropout(0.2)
 		)
 		self.conv2 = nn.Sequential(
-			nn.Conv2d(32, 32, 3, 1, 1),
-			nn.BatchNorm2d(32),
+			nn.Conv2d(channel_size_1, channel_size_1, 3, 1, 1),
+			nn.BatchNorm2d(channel_size_1),
 			nn.ReLU(True),
 			nn.Dropout(0.2),
 			nn.MaxPool2d(kernel_size=2, stride=2)
 		)
 		self.conv3 = nn.Sequential(
-			nn.Conv2d(32, 96, 3, 1, 1),
-			nn.BatchNorm2d(96),
+			nn.Conv2d(channel_size_1, channel_size_2, 3, 1, 1),
+			nn.BatchNorm2d(channel_size_2),
 			nn.ReLU(True),
 			nn.Dropout(0.2)
 		)
 		self.conv4 = nn.Sequential(
-			nn.Conv2d(96, 96, 3, 1, 1),
-			nn.BatchNorm2d(96),
+			nn.Conv2d(channel_size_2, channel_size_2, 3, 1, 1),
+			nn.BatchNorm2d(channel_size_2),
 			nn.ReLU(True),
 			nn.Dropout(0.2),
 			nn.MaxPool2d(2, 2)
 		)
 		self.conv5 = nn.Sequential(
-			nn.Conv2d(96, 96, 3, 1, 1),
-			nn.BatchNorm2d(96),
+			nn.Conv2d(channel_size_2, channel_size_2, 3, 1, 1),
+			nn.BatchNorm2d(channel_size_2),
 			nn.ReLU(True),
 		)
 		self.out = nn.Sequential(
-			#nn.Conv2d(96, 10, 1, 1, 0),
+			#nn.Conv2d(channel_size_2, 10, 1, 1, 0),
 			#nn.AvgPool2d(8)
 			nn.Flatten(),
-			nn.Linear(96 * 8 * 8, 10)
+			nn.Linear(channel_size_2 * 8 * 8, 10)
 		)
 		self.conv_layers = [self.conv1, self.conv2, self.conv3, self.conv4, self.conv5]
 
@@ -104,7 +106,7 @@ if __name__ == '__main__':
 			running_loss += loss.clone().detach().cpu().numpy()
 			optimizer.step()
 		iteration.set_description(str(running_loss / len(train_loader)))
-	torch.save(cnn.state_dict(), 'model_2.pt')
+	#torch.save(cnn.state_dict(), 'model_2.pt')
 
 	cnn.eval()
 	with torch.no_grad():

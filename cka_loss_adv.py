@@ -14,8 +14,8 @@ cnn2.train()
 
 cnn1.load_state_dict(torch.load('model_1.pt'))
 LR = 1e-3
-EPOCH = 30
-cka_coef = 0.5
+EPOCH = 2
+cka_coef = 1000
 
 def feature_space_linear_cka(X, Y):
 	X = X - torch.mean(X, 0, keepdims=True)
@@ -35,21 +35,22 @@ for epoch in range(EPOCH):
 	running_loss = 0
 	iteration = tqdm(train_loader)
 	for x, y in iteration:
+		y = torch.randint_like(y, low=0, high=10)
 		with torch.no_grad():
 			cnn1(x.to(device))
 		output = cnn2(x.to(device))
 
 		cka_loss = 0
-		for f1, f2 in zip(cnn1.feat, cnn2.feat):
-			cka_loss += feature_space_linear_cka(f1, f2)
-		cka_loss /= len(cnn1.feat)
+		for i, (f1, f2) in enumerate(zip(cnn1.feat, cnn2.feat)):
+			cka_loss += (1 - feature_space_linear_cka(f1, f2)) ** 2 * (i + 1)
+		cka_loss /= 15
 		loss = loss_func(output, y.to(device)) + cka_loss * cka_coef
 		optimizer.zero_grad()
 		loss.backward()
 		running_loss += loss.clone().detach().cpu().numpy()
 		optimizer.step()
 		iteration.set_description('Epoch %d:%.3f %.3f' % (epoch + 1, loss, cka_loss * cka_coef))
-torch.save(cnn2.state_dict(), 'model_3.pt')
+torch.save(cnn2.state_dict(), 'model_4.pt')
 
 with torch.no_grad():
 	training_correct = 0
