@@ -96,13 +96,12 @@ pi = 3.14159265358979323846264338327950288419716939937510
 dim = [32768, 8192, 24576, 6144, 6144, 10]
 S_limit = []
 for i in range(6):
-    S_limit.append((27000000/6)/dim[i])
-    if (S_limit[i] < 127):
-        S_limit[i] = 127
-S_limit[5] = 3000
+    S_limit.append((72000000/6)/dim[i])
+S_limit[5] = 5999
+max_norm = np.zeros([6])
 # print(S_limit)
 X = []
-NER_K = 17
+NER_K = 3
 Cnt = np.zeros([6, 10])
 for i in range(6):
     X.append([])
@@ -139,27 +138,27 @@ for i in range(6):
 #            X[i].append(np.zeros([S_limit,tmp]))
 
 
-def entropy(X):
-    #   X.to(device)
+def entropy(X, max_norm):
     n, m = X.shape
-#    X=X.reshape([-1,m])
-    G = torch.mm(X, X.T)
-    E = torch.diag(G).repeat(n, 1)
-    D = E+E.T-G*2
-#    for i in range(n):
-#        D[i][i] = 10.0**27
+    X = torch.mm(X, X.T)
+    D = torch.diag(X).repeat(n, 1)
+    D = D+D.T-X*2
     L_sum = 0
     for k in range(1, NER_K):
         L_sum -= (NER_K-k)/k
-    D = D.cpu().numpy()
-    D.sort(axis=1)
-    H = 0
+    D = D.sqrt().log()
+    D = D.sort(dim=1)[0]
+    if m > 27000:
+        m = math.floor(math.log(m)/(0.03**2/2-0.03**3/3))
+    else:
+        if m > 10000:
+            m = math.floor(math.log(m)/(0.05**2/2-0.05**3/2))
+    if m != 10:
+        H = n*NER_K*math.log(math.sqrt(m)/max_norm)
+    else:
+        H = 0
     for i in range(n):
-        for k in range(1, NER_K+1):
-            H += 0.5*math.log(D[i][k])
-#    Neighbor_d = D.min(1)[0].cpu().numpy()
-#    for i in range(n):
-#        H += 0.5*math.log(Neighbor_d[i])
+        H += D[i][1:NER_K+1].sum().item()
     if ((m % 2) == 0):
         tmp_gamma = m/2.0*math.log(pi)
         for i in range(m//2):
@@ -209,7 +208,7 @@ def calc(cnn, mu, Str, fg,  pro=None, pos=None):
                 loss = loss_f(outputs, b_y)
 
             optimizer.zero_grad()
- #           y_pred = torch.max(outputs, 1).indices
+#            y_pred = torch.max(outputs, 1).indices
 
             loss.backward()
             running_loss += loss.item()
@@ -224,6 +223,7 @@ def calc(cnn, mu, Str, fg,  pro=None, pos=None):
 
 
 def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
+    global max_norm
     if(fg == True):
         cnn.bid = 5
         pro.bid = pos+1
@@ -270,10 +270,12 @@ def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
                     y = label[j]
                     for i in range(6):
                         X[i][y].append(cnn.feat[i][j])
+                        if max_norm[i] < cnn.feat[i][j].norm(p=2):
+                            max_norm[i] = cnn.feat[i][j].norm(p=2)
                         tmp = len(X[i][y])
                         if(tmp > S_limit[i]):
                             Q = torch.full(
-                                [tmp, X[i][y][0].size()[0]], 0).to(device)
+                                [tmp, X[i][y][0].size()[0]], 0, dtype=torch.float32).to(device)
                             for k in range(tmp):
                                 Q[k] = X[i][y][k]
 #                            H_tmp = entropy(Q)
@@ -282,7 +284,7 @@ def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
 #                            print(y)
 #                            print(H_tmp)
 #                            print('\n')
-                            H[i][y] += entropy(Q)
+                            H[i][y] += entropy(Q, max_norm[i])
                             X[i][y] = []
 
             y_pred = torch.max(outputs, 1).indices
@@ -307,10 +309,12 @@ def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
                     y = label[j]
                     for i in range(6):
                         X[i][y].append(cnn.feat[i][j])
+                        if max_norm[i] < cnn.feat[i][j].norm(p=2):
+                            max_norm[i] = cnn.feat[i][j].norm(p=2)
                         tmp = len(X[i][y])
                         if(tmp > S_limit[i]):
                             Q = torch.full(
-                                [tmp, X[i][y][0].size()[0]], 0).to(device)
+                                [tmp, X[i][y][0].size()[0]], 0, dtype=torch.float32).to(device)
                             for k in range(tmp):
                                 Q[k] = X[i][y][k]
 #                            H_tmp = entropy(Q)
@@ -319,7 +323,7 @@ def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
 #                            print(y)
 #                            print(H_tmp)
 #                            print('\n')
-                            H[i][y] += entropy(Q)
+                            H[i][y] += entropy(Q, max_norm[i])
                             X[i][y] = []
 
             y_pred = torch.max(outputs, 1).indices
@@ -334,11 +338,12 @@ def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
             for y in range(10):
                 tmp = len(X[i][y])
                 if(tmp > 0.5*S_limit[i]):
-                    Q = torch.full([tmp, X[i][y][0].size()[0]], 0).to(device)
+                    Q = torch.full([tmp, X[i][y][0].size()[0]],
+                                   0, dtype=torch.float32).to(device)
                     for k in range(tmp):
                         Q[k] = X[i][y][k]
                     Cnt[i][y] += 1
-                    H[i][y] += entropy(Q)
+                    H[i][y] += entropy(Q, max_norm[i])
                     X[i][y] = []
                 H[i][y] /= Cnt[i][y]
     print(Str)
@@ -365,8 +370,6 @@ if __name__ == '__main__':
 
     cnn_1.load_state_dict(torch.load('model_1.pt', map_location='cpu'))
     cnn_2.load_state_dict(torch.load('model_2.pt', map_location='cpu'))
-#    dict_1=[]
-#    dict_2=[]
 
 #    est(cnn_1, 0, '1', False, H=H_1)
 #    est(cnn_2, 0, '2', False, H=H_2)
@@ -386,23 +389,10 @@ if __name__ == '__main__':
     handle = pynvml.nvmlDeviceGetHandleByIndex(0)
     meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
     print(meminfo.used)
-#    trained_1_list = list(dict_1.keys())
-#    trained_2_list = list(dict_2.keys())
-#    j = 0
-#    d_pos = []
-#    for i in range(5):
-#        while str.find(trained_1_list[j], 'conv{}'.format(i+1)) != 0:
-#            j += 1
-#        d_pos.append(j)
-#    while str.find(trained_1_list[j], 'out') != 0:
-#        j += 1
-#    d_pos.append(j)
 
-#    cnn_1.to(device)
-#    cnn_2.to(device)
-#    convert_loss = np.zeros([6, 6])
-    convert_loss = np.load('convert_loss.npy')
-    print(convert_loss)
+#    convert_ratio = np.zeros([6, 6])
+    convert_ratio = np.load('convert_ratio.npy')
+    print(convert_ratio)
 
     for l in range(5, 5):
         for r in range(l+1, 6):
@@ -418,8 +408,8 @@ if __name__ == '__main__':
                 cnn.layers[k] = cnn_2.layers[k]
                 cnn_1.layers[k].to(torch.device('cpu'))
 
-            convert_loss[l][r] = calc(cnn, 1, 'A->B_{}_{}_1'.format(l, r),
-                                      True, cnn_2, r)
+            convert_ratio[l][r] = calc(cnn, 1, 'A->B_{}_{}_1'.format(l, r),
+                                       True, cnn_2, r)
             handle = pynvml.nvmlDeviceGetHandleByIndex(0)
             meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
             print(meminfo.used)
@@ -435,21 +425,49 @@ if __name__ == '__main__':
                 cnn.layers[k] = cnn_1.layers[k]
                 cnn_2.layers[k].to(torch.device('cpu'))
 
-            convert_loss[r][l] = calc(cnn, 1, 'B->A_{}_{}_1'.format(l, r),
-                                      True, cnn_1, r)
+            convert_ratio[r][l] = calc(cnn, 1, 'B->A_{}_{}_1'.format(l, r),
+                                       True, cnn_1, r)
             handle = pynvml.nvmlDeviceGetHandleByIndex(0)
             meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
             print(meminfo.used)
 
-            np.save('convert_loss.npy', convert_loss)
+            np.save('convert_ratio.npy', convert_ratio)
             print('loss_saved_%d' % (l))
 #        exit(0)
 
 # similarity
 # to be modified
-    # print(convert_loss)
-    print(H_1)
-    print(H_2)
+    # print(convert_ratio)
+    # print(H_1)
+    # print(H_2)
+    L6_same = 0
+    cnn_1.to(device)
+    cnn_2.to(device)
+    with torch.no_grad():
+
+        for X_train, y_train in train_loader:
+            X_train = X_train.to(device)
+            y_train = y_train.to(device)
+
+            outputs_1 = cnn_1(X_train)
+            outputs_2 = cnn_2(X_train)
+            pred_1 = torch.max(outputs_1, 1).indices
+            pred_2 = torch.max(outputs_2, 1).indices
+
+            L6_same += torch.sum(pred_1==pred_2).item()
+
+        for X_test, y_test in test_loader:
+            X_test = X_test.to(device)
+            y_test = y_test.to(device)
+
+            outputs_1 = cnn_1(X_test)
+            outputs_2 = cnn_2(X_test)
+            pred_1 = torch.max(outputs_1, 1).indices
+            pred_2 = torch.max(outputs_2, 1).indices
+            
+            L6_same += torch.sum(pred_1==pred_2).item()
+    L6_same/=len(train_data)+len(test_data)
+
     si = np.zeros([6, 6])
     for l in range(6):
         for r in range(6):
@@ -458,39 +476,32 @@ if __name__ == '__main__':
                 for k in range(10):
                     H_r += H_1[l][k]/H_2[r][k]
                 H_r /= 10
-                si[l][r] = min(1, convert_loss[l][r]*H_r)
+                si[l][r] = min(1, convert_ratio[l][r]*min(H_r, 1))
             else:
                 if(l < r):
                     H_r = 0
                     for k in range(10):
                         H_r += H_2[r][k]/H_1[l][k]
                     H_r /= 10
-                    si[l][r] = min(1, convert_loss[l][r]*H_r)
+                    si[l][r] = min(1, convert_ratio[l][r]*min(H_r, 1))
                 else:
                     if(l == 5 and r == 5):
                         H_r = 0
                         for k in range(10):
                             H_r += H_1[l][k]/H_2[r][k]
                         H_r /= 10
-                        si[l][r] = min(H_r, 1/H_r)
+                        si[l][r] = min(H_r, 1/H_r)*L6_same
                     else:
                         H_AB = 0
-                        H_BB = 0
-                        H_AA = 0
-                        H_BA = 0
                         for k in range(10):
-                            H_AA += H_1[l][k]/H_1[l+1][k]
-                            H_AB += H_1[l][k]/H_2[r+1][k]
-                            H_BA += H_2[r][k]/H_1[l+1][k]
-                            H_BB += H_2[r][k]/H_2[r+1][k]
+                            H_AB += H_1[l][k]/H_2[r][k]
                         H_AB /= 10
-                        H_AA /= 10
-                        H_BB /= 10
-                        H_BA /= 10
-                        si[l][r] = min(
-                            1, (convert_loss[l][r+1]*H_AB/H_BB+convert_loss[l+1][r]*H_BA/H_AA)/2)
+                        tmp_sim = 0
+                        for k in range(5-l):
+                            tmp_sim+=max(convert_ratio[l][r+k+1]*min(H_AB, 1), convert_ratio[l+k+1][r]*min(1, 1/H_AB))
+                        si[l][r] = min(1, tmp_sim/(5-l))
     print(si)
-    np.savetxt('convert_loss.txt', convert_loss, fmt='%0.17f', delimiter=' ')
+    np.savetxt('convert_ratio.txt', convert_ratio, fmt='%0.17f', delimiter=' ')
     np.savetxt('H_1.txt', H_1, fmt='%17.7f', delimiter=' ')
     np.savetxt('H_2.txt', H_2, fmt='%17.7f', delimiter=' ')
     np.savetxt('similarity.txt', si, fmt='%.17f', delimiter=' ')
