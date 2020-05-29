@@ -153,6 +153,9 @@ def entropy(X, max_norm):
     else:
         if m > 10000:
             m = math.floor(math.log(m)/(0.05**2/2-0.05**3/2))
+        else:
+            if m<7000 and m!=10:
+                m=math.floor(math.log(m)/(0.07**2/2-0.07**3/2))
     if m != 10:
         H = n*NER_K*math.log(math.sqrt(m)/max_norm)
     else:
