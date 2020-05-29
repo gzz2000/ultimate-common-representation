@@ -206,7 +206,7 @@ def calc(cnn, mu, Str, fg,  pro=None, pos=None):
                 with torch.no_grad():
                     pro(b_x)
 #                loss = (1-mu)*loss_f(outputs, b_y)+mu * torch.dist(cnn.feat[pos], pro.feat[pos], p=2)
-                loss = torch.dist(cnn.feat[pos], pro.feat[pos], p=2)
+                loss = torch.dist(cnn.feat[pos], pro.feat[pos], p=2).requires_grad_()
             else:
                 outputs = cnn(b_x)
                 loss = loss_f(outputs, b_y)
@@ -221,8 +221,6 @@ def calc(cnn, mu, Str, fg,  pro=None, pos=None):
         iteration.set_description(str(running_loss / len(train_loader)))
         torch.cuda.empty_cache()
 
-    if(fg == False):
-        torch.save(cnn.state_dict(), 'model_{}.pt'.format(Str))
     return est(cnn, mu, Str, fg, pro, pos)
 
 
@@ -235,6 +233,7 @@ def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
         pro.eval()
     else:
         cnn.to(device)
+        torch.save(cnn.state_dict(), 'model_{}.pt'.format(Str))
     loss_f = nn.CrossEntropyLoss()
     cnn.eval()
     test_correct = 0
@@ -373,20 +372,22 @@ if __name__ == '__main__':
     #    calc(cnn_2, 0, '2', False)
 
     cnn_1.load_state_dict(torch.load('model_1.pt', map_location='cpu'))
-#    cnn_2.load_state_dict(torch.load('model_2.pt', map_location='cpu'))
+    cnn_2.load_state_dict(torch.load('model_2.pt', map_location='cpu'))
 
 #    est(cnn_1, 0, '1', False, H=H_1)
 #    est(cnn_2, 0, '2', False, H=H_2)
 #    np.savez('entropy.npz', H_1=H_1, H_2=H_2)
 
     H = np.load('entropy.npz')
-    H_1 = H['H_1']
+#    H_1 = H['H_1']
     H_2 = H['H_2']
+    H_1=np.loadtxt('H_1.txt')
+#    H_2=np.loadtxt('H_2.txt')
     if H_1.min() < 0:
         H_1 += np.full((6, 10), 1-H_1.min())
     if H_2.min() < 0:
         H_2 += np.full((6, 10), 1-H_2.min())
-
+        
     np.savetxt('H_1.txt', H_1, fmt='%17.7f', delimiter=' ')
     np.savetxt('H_2.txt', H_2, fmt='%17.7f', delimiter=' ')
 #    for i in range(6):
@@ -403,11 +404,12 @@ if __name__ == '__main__':
 
 #    convert_ratio = np.zeros([6, 6])
     convert_ratio = np.load('convert_ratio.npy')
+#    convert_ratio=np.loadtxt('convert_ratio.txt')
     print(convert_ratio)
 
 #    exit(0)
 
-    for l in range(3, 5):
+    for l in range(5, 5):
         for r in range(l+1, 6):
             # mask l+1..r, l-->r
             cnn = CNN()
@@ -446,7 +448,7 @@ if __name__ == '__main__':
 
             np.save('convert_ratio.npy', convert_ratio)
             print('loss_saved_%d' % (l))
-#        exit(0)
+        exit(0)
 
 # similarity
 # to be modified
@@ -456,6 +458,8 @@ if __name__ == '__main__':
     L6_same = 0
     cnn_1.to(device)
     cnn_2.to(device)
+    cnn_1.bid=6
+    cnn_2.bid=6
     with torch.no_grad():
 
         for X_train, y_train in train_loader:
@@ -481,6 +485,8 @@ if __name__ == '__main__':
             L6_same += torch.sum(pred_1 == pred_2).item()
     L6_same /= len(train_data)+len(test_data)
 
+    print(L6_same)
+    
     si = np.zeros([6, 6])
     for l in range(6):
         for r in range(6):
