@@ -66,7 +66,7 @@ class CNN(nn.Module):
         self.feat.clear()
         for layer in self.conv_layers:
             x = layer(x)
-            self.feat.append(x.view(x.size(0), -1))
+            self.feat.append(x)
         output = self.out(x).view(x.size(0), 10)
         return output
 
