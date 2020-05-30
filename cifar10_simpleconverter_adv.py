@@ -118,5 +118,5 @@ if __name__ == '__main__':
         print_acc(ens21, 'ens21')
 
         if (epoch + 1) % 5 == 0:
-            torch.save(model1.state_dict(), './models/CIFAR10_no_dropout/advsc/model_3e_epoch_{:d}_1.pt'.format(epoch))
-            torch.save(model2.state_dict(), './models/CIFAR10_no_dropout/advsc/model_3e_epoch_{:d}_2.pt'.format(epoch))
+            torch.save(model1.state_dict(), './models/CIFAR10_adv/advsc/model_3e_epoch_{:d}_1.pt'.format(epoch))
+            torch.save(model2.state_dict(), './models/CIFAR10_adv/advsc/model_3e_epoch_{:d}_2.pt'.format(epoch))

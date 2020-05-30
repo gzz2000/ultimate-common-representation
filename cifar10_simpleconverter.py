@@ -35,11 +35,11 @@ if __name__ == '__main__':
     model1 = CNN().to(device)
     model2 = CNN().to(device)
     
-    # model1.load_state_dict(torch.load('./models/CIFAR10_no_dropout/model_1.pt'))
-    # model2.load_state_dict(torch.load('./models/CIFAR10_no_dropout/model_2.pt'))
+    # model1.load_state_dict(torch.load('./models/CIFAR10_adv/model_1.pt'))
+    # model2.load_state_dict(torch.load('./models/CIFAR10_adv/model_2.pt'))
     
-    model1.load_state_dict(torch.load('./models/CIFAR10_no_dropout/advsc/model_epoch_9_1.pt'))
-    model2.load_state_dict(torch.load('./models/CIFAR10_no_dropout/advsc/model_epoch_9_2.pt'))
+    model1.load_state_dict(torch.load('./models/CIFAR10_adv/advsc/model_epoch_9_1.pt'))
+    model2.load_state_dict(torch.load('./models/CIFAR10_adv/advsc/model_epoch_9_2.pt'))
 
     model1.eval()
     model2.eval()
