@@ -70,6 +70,11 @@ class CNN(nn.Module):
         output = self.out(x).view(x.size(0), 10)
         return output
 
+    def forward_to(self, x, to):
+        for layer in self.conv_layers[:to]:
+            x = layer(x)
+        return x
+
 if __name__ == '__main__':
     cnn = CNN()
     cnn.to(device)

@@ -3,6 +3,16 @@
 local/
 data/
 
+## emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
 ## below: default .gitignore for python
 
 # Byte-compiled / optimized / DLL files
