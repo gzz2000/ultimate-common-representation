@@ -77,14 +77,15 @@ class CNN(nn.Module):
         )
         self.layers = [self.conv1, self.conv2,
                        self.conv3, self.conv4, self.conv5, self.out]
-        self.bid = 5
+        self.bid = 6
 
     def forward(self, x):
         self.feat.clear()
-        for layer in range(self.bid):
+        layer_num=min(self.bid,5)
+        for layer in range(layer_num):
             x = self.layers[layer](x)
             self.feat.append(x.view(x.size(0), -1))
-        if(self.bid == 5):
+        if(self.bid == 6):
             output = self.layers[5](x).view(x.size(0), 10)
             self.feat.append(output.view(output.size(0), -1))
             return output
@@ -154,8 +155,8 @@ def entropy(X, max_norm):
         if m > 10000:
             m = math.floor(math.log(m)/(0.05**2/2-0.05**3/2))
         else:
-            if m<7000 and m!=10:
-                m=math.floor(math.log(m)/(0.07**2/2-0.07**3/2))
+            if m < 7000 and m != 10:
+                m = math.floor(math.log(m)/(0.07**2/2-0.07**3/2))
     if m != 10:
         H = n*NER_K*math.log(math.sqrt(m)/max_norm)
     else:
@@ -205,7 +206,7 @@ def calc(cnn, mu, Str, fg,  pro=None, pos=None):
                 with torch.no_grad():
                     pro(b_x)
 #                loss = (1-mu)*loss_f(outputs, b_y)+mu * torch.dist(cnn.feat[pos], pro.feat[pos], p=2)
-                loss = torch.dist(cnn.feat[pos], pro.feat[pos], p=2)
+                loss = torch.dist(cnn.feat[pos], pro.feat[pos], p=2).requires_grad_()
             else:
                 outputs = cnn(b_x)
                 loss = loss_f(outputs, b_y)
@@ -220,20 +221,19 @@ def calc(cnn, mu, Str, fg,  pro=None, pos=None):
         iteration.set_description(str(running_loss / len(train_loader)))
         torch.cuda.empty_cache()
 
-    if(fg == False):
-        torch.save(cnn.state_dict(), 'model_{}.pt'.format(Str))
     return est(cnn, mu, Str, fg, pro, pos)
 
 
 def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
     global max_norm
     if(fg == True):
-        cnn.bid = 5
+        cnn.bid = 6
         pro.bid = pos+1
         pro.to(device)
         pro.eval()
     else:
         cnn.to(device)
+        torch.save(cnn.state_dict(), 'model_{}.pt'.format(Str))
     loss_f = nn.CrossEntropyLoss()
     cnn.eval()
     test_correct = 0
@@ -379,8 +379,17 @@ if __name__ == '__main__':
 #    np.savez('entropy.npz', H_1=H_1, H_2=H_2)
 
     H = np.load('entropy.npz')
-    H_1 = H['H_1']
+#    H_1 = H['H_1']
     H_2 = H['H_2']
+    H_1=np.loadtxt('H_1.txt')
+#    H_2=np.loadtxt('H_2.txt')
+    if H_1.min() < 0:
+        H_1 += np.full((6, 10), 1-H_1.min())
+    if H_2.min() < 0:
+        H_2 += np.full((6, 10), 1-H_2.min())
+        
+    np.savetxt('H_1.txt', H_1, fmt='%17.7f', delimiter=' ')
+    np.savetxt('H_2.txt', H_2, fmt='%17.7f', delimiter=' ')
 #    for i in range(6):
 #        print(H_1[i])
 #        print(H_2[i])
@@ -395,7 +404,10 @@ if __name__ == '__main__':
 
 #    convert_ratio = np.zeros([6, 6])
     convert_ratio = np.load('convert_ratio.npy')
+#    convert_ratio=np.loadtxt('convert_ratio.txt')
     print(convert_ratio)
+
+#    exit(0)
 
     for l in range(5, 5):
         for r in range(l+1, 6):
@@ -436,7 +448,7 @@ if __name__ == '__main__':
 
             np.save('convert_ratio.npy', convert_ratio)
             print('loss_saved_%d' % (l))
-#        exit(0)
+        exit(0)
 
 # similarity
 # to be modified
@@ -446,6 +458,8 @@ if __name__ == '__main__':
     L6_same = 0
     cnn_1.to(device)
     cnn_2.to(device)
+    cnn_1.bid=6
+    cnn_2.bid=6
     with torch.no_grad():
 
         for X_train, y_train in train_loader:
@@ -457,7 +471,7 @@ if __name__ == '__main__':
             pred_1 = torch.max(outputs_1, 1).indices
             pred_2 = torch.max(outputs_2, 1).indices
 
-            L6_same += torch.sum(pred_1==pred_2).item()
+            L6_same += torch.sum(pred_1 == pred_2).item()
 
         for X_test, y_test in test_loader:
             X_test = X_test.to(device)
@@ -467,10 +481,12 @@ if __name__ == '__main__':
             outputs_2 = cnn_2(X_test)
             pred_1 = torch.max(outputs_1, 1).indices
             pred_2 = torch.max(outputs_2, 1).indices
-            
-            L6_same += torch.sum(pred_1==pred_2).item()
-    L6_same/=len(train_data)+len(test_data)
 
+            L6_same += torch.sum(pred_1 == pred_2).item()
+    L6_same /= len(train_data)+len(test_data)
+
+    print(L6_same)
+    
     si = np.zeros([6, 6])
     for l in range(6):
         for r in range(6):
@@ -501,10 +517,9 @@ if __name__ == '__main__':
                         H_AB /= 10
                         tmp_sim = 0
                         for k in range(5-l):
-                            tmp_sim+=max(convert_ratio[l][r+k+1]*min(H_AB, 1), convert_ratio[l+k+1][r]*min(1, 1/H_AB))
+                            tmp_sim += max(convert_ratio[l][r+k+1]*min(
+                                H_AB, 1), convert_ratio[l+k+1][r]*min(1, 1/H_AB))
                         si[l][r] = min(1, tmp_sim/(5-l))
     print(si)
     np.savetxt('convert_ratio.txt', convert_ratio, fmt='%0.17f', delimiter=' ')
-    np.savetxt('H_1.txt', H_1, fmt='%17.7f', delimiter=' ')
-    np.savetxt('H_2.txt', H_2, fmt='%17.7f', delimiter=' ')
     np.savetxt('similarity.txt', si, fmt='%.17f', delimiter=' ')
