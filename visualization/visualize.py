@@ -1,20 +1,11 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 
-a = np.loadtxt('similarity.txt')
+a = np.loadtxt('similarity_UU.txt')
 a = np.flipud(a)
+t= sns.heatmap(a, vmin=0.03, vmax=0.65, cmap='magma', xticklabels=list(range(1,7)),yticklabels=list(range(6,0,-1)))
 
-plt.imshow(a, cmap='magma')
-plt.colorbar()
-
-
-num = 6
-plt.xticks(np.arange(0,num),np.arange(1,num+1))
-plt.yticks(np.arange(0,num),np.arange(num,0,step=-1))
-
-plt.xlabel('Network 2')
-plt.ylabel('Network 1')
-
+t.set(xlabel='Network B',ylabel='Network A')
 
 plt.show()
-print(a)
