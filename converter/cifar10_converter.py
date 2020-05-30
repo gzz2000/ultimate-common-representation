@@ -17,7 +17,6 @@ device = torch.device('cuda')
 
 EPOCH = 20
 BATCH_SIZE = 64
-LR = 0.001
 DOWNLOAD_MNIST = True
 
 train_data = torchvision.datasets.CIFAR10(
@@ -81,7 +80,7 @@ class CNN(nn.Module):
 
     def forward(self, x):
         self.feat.clear()
-        layer_num=min(self.bid,5)
+        layer_num = min(self.bid, 5)
         for layer in range(layer_num):
             x = self.layers[layer](x)
             self.feat.append(x.view(x.size(0), -1))
@@ -174,7 +173,7 @@ def entropy(X, max_norm):
     return m*H/(n*NER_K)+C+math.log(n)+tmp_gamma-L_sum/NER_K
 
 
-def calc(cnn, mu, Str, fg,  pro=None, pos=None):
+def calc(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
     if(fg == True):
         cnn.bid = pos+1
         pro.bid = pos+1
@@ -184,15 +183,16 @@ def calc(cnn, mu, Str, fg,  pro=None, pos=None):
         cnn.to(device)
     cnn.train()
 
-    optimizer = torch.optim.Adam(
-        filter(lambda q: q.requires_grad, cnn.parameters()), lr=LR)
-
-    loss_f = nn.CrossEntropyLoss()
-
     if(fg == True):
         EPOCH = 1
     else:
-        EPOCH = 20
+        EPOCH = 10
+
+    optimizer = torch.optim.Adam(
+        filter(lambda q: q.requires_grad, cnn.parameters()), lr=1e-3, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=True)
+#    optimizer = torch.optim.RMSprop(filter(lambda q: q.requires_grad, cnn.parameters()), lr=1e-3, alpha=0.99, eps=1e-08, weight_decay=0, momentum=0, centered=False)
+    loss_f = nn.CrossEntropyLoss()
+
     iteration = trange(EPOCH)
     for epoch in iteration:
         #        running_correct = 0
@@ -206,7 +206,8 @@ def calc(cnn, mu, Str, fg,  pro=None, pos=None):
                 with torch.no_grad():
                     pro(b_x)
 #                loss = (1-mu)*loss_f(outputs, b_y)+mu * torch.dist(cnn.feat[pos], pro.feat[pos], p=2)
-                loss = torch.dist(cnn.feat[pos], pro.feat[pos], p=2).requires_grad_()
+                loss = torch.dist(
+                    cnn.feat[pos], pro.feat[pos], p=2).requires_grad_()
             else:
                 outputs = cnn(b_x)
                 loss = loss_f(outputs, b_y)
@@ -220,8 +221,9 @@ def calc(cnn, mu, Str, fg,  pro=None, pos=None):
             optimizer.step()
         iteration.set_description(str(running_loss / len(train_loader)))
         torch.cuda.empty_cache()
+        torch.save(cnn.state_dict(), 'model_{}.pt'.format(Str))
 
-    return est(cnn, mu, Str, fg, pro, pos)
+    return est(cnn, mu, Str, fg, pro, pos, H)
 
 
 def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
@@ -234,6 +236,7 @@ def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
     else:
         cnn.to(device)
         torch.save(cnn.state_dict(), 'model_{}.pt'.format(Str))
+#    exit(0)
     loss_f = nn.CrossEntropyLoss()
     cnn.eval()
     test_correct = 0
@@ -358,7 +361,7 @@ def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
 
     if(fg == True):
         #        print(tr)
-        return tr/(len(train_loader)+len(test_loader))
+        return tr/(len(train_loader)+len(test_loader)), train_loss/len(train_loader), test_loss/len(test_loader), train_correct/len(train_data), test_correct/len(test_data)
 
 
 if __name__ == '__main__':
@@ -368,8 +371,10 @@ if __name__ == '__main__':
     H_1 = np.zeros([6, 10])
     H_2 = np.zeros([6, 10])
 
-    #    calc(cnn_1, 0, '1', False)
-    #    calc(cnn_2, 0, '2', False)
+#    cnn_1.load_state_dict(torch.load('model_1.pt', map_location='cpu'))
+#    calc(cnn_1, 0, '1', False, H=H_1)
+#    cnn_2.load_state_dict(torch.load('model_2.pt', map_location='cpu'))
+#    calc(cnn_2, 0, '2', False, H=H_2)
 
     cnn_1.load_state_dict(torch.load('model_1.pt', map_location='cpu'))
     cnn_2.load_state_dict(torch.load('model_2.pt', map_location='cpu'))
@@ -378,16 +383,16 @@ if __name__ == '__main__':
 #    est(cnn_2, 0, '2', False, H=H_2)
 #    np.savez('entropy.npz', H_1=H_1, H_2=H_2)
 
-    H = np.load('entropy.npz')
+#    H = np.load('entropy.npz')
 #    H_1 = H['H_1']
-    H_2 = H['H_2']
-    H_1=np.loadtxt('H_1.txt')
-#    H_2=np.loadtxt('H_2.txt')
+#    H_2 = H['H_2']
+    H_1 = np.loadtxt('H_1.txt')
+    H_2 = np.loadtxt('H_2.txt')
     if H_1.min() < 0:
         H_1 += np.full((6, 10), 1-H_1.min())
     if H_2.min() < 0:
         H_2 += np.full((6, 10), 1-H_2.min())
-        
+
     np.savetxt('H_1.txt', H_1, fmt='%17.7f', delimiter=' ')
     np.savetxt('H_2.txt', H_2, fmt='%17.7f', delimiter=' ')
 #    for i in range(6):
@@ -403,16 +408,21 @@ if __name__ == '__main__':
     print(meminfo.used)
 
 #    convert_ratio = np.zeros([6, 6])
-    convert_ratio = np.load('convert_ratio.npy')
-#    convert_ratio=np.loadtxt('convert_ratio.txt')
+#    convert_ratio = np.load('convert_ratio.npy')
+    convert_ratio = np.loadtxt('convert_ratio.txt')
     print(convert_ratio)
 
 #    exit(0)
+#    converter_data = np.zeros([21, 5])  # convert_ratio loss acc
+    converter_data=np.loadtxt('converter_epoch_data/converter_3_4_data.txt')
+    epoch_limit = 20
 
-    for l in range(5, 5):
-        for r in range(l+1, 6):
+    for l in range(3, 5):
+        for r in range(4, 6):
             # mask l+1..r, l-->r
             cnn = CNN()
+            cnn.load_state_dict(torch.load('converter_epoch_data/model_{}_{}_{}.pt'.format(l,r,epoch_limit-1),map_location='cpu'))
+
             for k in range(l+1):
                 cnn.layers[k] = cnn_1.layers[k]
                 cnn_1.layers[k].to(device)
@@ -423,11 +433,19 @@ if __name__ == '__main__':
                 cnn.layers[k] = cnn_2.layers[k]
                 cnn_1.layers[k].to(torch.device('cpu'))
 
-            convert_ratio[l][r] = calc(cnn, 1, 'A->B_{}_{}_1'.format(l, r),
-                                       True, cnn_2, r)
+            convert_ratio[l][r], converter_data[epoch_limit][1], converter_data[epoch_limit][2], converter_data[epoch_limit][3], converter_data[epoch_limit][4] = calc(cnn, 1, 'A->B_{}_{}_1'.format(l, r),
+                                                                                                                                                                               True, cnn_2, r)
+            torch.save(
+                cnn.state_dict(), 'converter_epoch_data/model_{}_{}_{}.pt'.format(l, r, epoch_limit))
+
             handle = pynvml.nvmlDeviceGetHandleByIndex(0)
             meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
             print(meminfo.used)
+            converter_data[epoch_limit][0] = convert_ratio[l][r]
+
+            np.savetxt('converter_epoch_data/converter_{}_{}_data.txt'.format(l,r), converter_data,
+                       fmt='%.17f', delimiter=' ')
+            exit(0)
 
             cnn = CNN()
             for k in range(l+1):
@@ -458,8 +476,8 @@ if __name__ == '__main__':
     L6_same = 0
     cnn_1.to(device)
     cnn_2.to(device)
-    cnn_1.bid=6
-    cnn_2.bid=6
+    cnn_1.bid = 6
+    cnn_2.bid = 6
     with torch.no_grad():
 
         for X_train, y_train in train_loader:
@@ -486,7 +504,7 @@ if __name__ == '__main__':
     L6_same /= len(train_data)+len(test_data)
 
     print(L6_same)
-    
+
     si = np.zeros([6, 6])
     for l in range(6):
         for r in range(6):
