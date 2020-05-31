@@ -10,8 +10,8 @@ device = torch.device('cuda')
 EPOCH = 20
 LR = 1e-3
 
-channel_size_1 = 32
-channel_size_2 = 96
+channel_size_1 = 16
+channel_size_2 = 32
 
 class CNN(nn.Module):
     def __init__(self):

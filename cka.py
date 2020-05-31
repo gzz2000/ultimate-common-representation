@@ -1,6 +1,7 @@
 import torch
 from cifar10 import CNN, test_data, device
 import numpy as np
+from test_acc import print_acc
 
 test_loader = torch.utils.data.DataLoader(test_data, 2000)
 
@@ -34,7 +35,10 @@ if __name__ == '__main__':
 	cnn2.eval()
 
 	dir = 'converter/untrained/'
-	cnn1.load_state_dict(torch.load(dir + 'model_1.pt'))
-	cnn2.load_state_dict(torch.load(dir + 'model_2.pt'))
+	cnn1.load_state_dict(torch.load('./models/CIFAR10/model_1.pt'))
+	cnn2.load_state_dict(torch.load('model_3.pt'))
 
-	np.savetxt(dir + 'cka.txt', each_layer_pair_cka(cnn1, cnn2), fmt='%.17f')
+	print_acc(cnn1, 'A')
+	print_acc(cnn2, 'B')
+	print(each_layer_pair_cka(cnn1, cnn2))
+	#np.savetxt(dir + 'cka.txt', each_layer_pair_cka(cnn1, cnn2), fmt='%.17f')
