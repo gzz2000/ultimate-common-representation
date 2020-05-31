@@ -32,6 +32,9 @@ train_loader = Data.DataLoader(
     dataset=train_data, batch_size=BATCH_SIZE, shuffle=True)
 test_loader = Data.DataLoader(dataset=test_data, batch_size=BATCH_SIZE)
 
+channel_size_1 = 16
+channel_size_2 = 32
+
 
 class CNN(nn.Module):
     def __init__(self):
@@ -40,39 +43,45 @@ class CNN(nn.Module):
         self.conv1 = nn.Sequential(
             nn.Conv2d(
                 in_channels=3,
-                out_channels=32,
+                out_channels=channel_size_1,
                 kernel_size=3,
                 stride=1,
                 padding=1,
             ),
-            nn.BatchNorm2d(32),
+            nn.BatchNorm2d(channel_size_1),
             nn.ReLU(True),
+            nn.Dropout(0.2)
         )
         self.conv2 = nn.Sequential(
-            nn.Conv2d(32, 32, 3, 1, 1),
-            nn.BatchNorm2d(32),
+            nn.Conv2d(channel_size_1, channel_size_1, 3, 1, 1),
+            nn.BatchNorm2d(channel_size_1),
             nn.ReLU(True),
+            nn.Dropout(0.2),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
         self.conv3 = nn.Sequential(
-            nn.Conv2d(32, 96, 3, 1, 1),
-            nn.BatchNorm2d(96),
+            nn.Conv2d(channel_size_1, channel_size_2, 3, 1, 1),
+            nn.BatchNorm2d(channel_size_2),
             nn.ReLU(True),
+            nn.Dropout(0.2)
         )
         self.conv4 = nn.Sequential(
-            nn.Conv2d(96, 96, 3, 1, 1),
-            nn.BatchNorm2d(96),
+            nn.Conv2d(channel_size_2, channel_size_2, 3, 1, 1),
+            nn.BatchNorm2d(channel_size_2),
             nn.ReLU(True),
+            nn.Dropout(0.2),
             nn.MaxPool2d(2, 2)
         )
         self.conv5 = nn.Sequential(
-            nn.Conv2d(96, 96, 3, 1, 1),
-            nn.BatchNorm2d(96),
+            nn.Conv2d(channel_size_2, channel_size_2, 3, 1, 1),
+            nn.BatchNorm2d(channel_size_2),
             nn.ReLU(True),
         )
         self.out = nn.Sequential(
+            # nn.Conv2d(channel_size_2, 10, 1, 1, 0),
+            # nn.AvgPool2d(8)
             nn.Flatten(),
-            nn.Linear(96 * 8 * 8, 10)
+            nn.Linear(channel_size_2 * 8 * 8, 10)
         )
         self.layers = [self.conv1, self.conv2,
                        self.conv3, self.conv4, self.conv5, self.out]
@@ -93,10 +102,12 @@ class CNN(nn.Module):
 # np.random.seed(721234827)
 C = 0.57721566490153286060651209008240243104215933593992
 pi = 3.14159265358979323846264338327950288419716939937510
-dim = [32768, 8192, 24576, 6144, 6144, 10]
+dim = [16384, 4096, 8192, 2048, 2048, 10]
 S_limit = []
 for i in range(6):
     S_limit.append((72000000/6)/dim[i])
+    if S_limit[i]>4700:
+        S_limit[i]=4700
 S_limit[5] = 5999
 max_norm = np.zeros([6])
 # print(S_limit)
@@ -148,14 +159,14 @@ def entropy(X, max_norm):
         L_sum -= (NER_K-k)/k
     D = D.sqrt().log()
     D = D.sort(dim=1)[0]
-    if m > 27000:
-        m = math.floor(math.log(m)/(0.03**2/2-0.03**3/3))
+    if m > 10000:
+        m = math.floor(3*math.log(n)/(0.05**2/2-0.05**3/3))
     else:
-        if m > 10000:
-            m = math.floor(math.log(m)/(0.05**2/2-0.05**3/2))
-        else:
-            if m < 7000 and m != 10:
-                m = math.floor(math.log(m)/(0.07**2/2-0.07**3/2))
+        if m > 8000:
+            m = math.floor(0.87*math.log(m)/(0.05**2/2-0.05**3/3))
+#        else:
+#            if m < 7000 and m != 10:
+#                m = math.floor(math.log(m)/(0.07**2/2-0.07**3/2))
     if m != 10:
         H = n*NER_K*math.log(math.sqrt(m)/max_norm)
     else:
@@ -221,7 +232,7 @@ def calc(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
             optimizer.step()
         iteration.set_description(str(running_loss / len(train_loader)))
         torch.cuda.empty_cache()
-        torch.save(cnn.state_dict(), 'model_{}.pt'.format(Str))
+#        torch.save(cnn.state_dict(), 'model_{}.pt'.format(Str))
 
     return est(cnn, mu, Str, fg, pro, pos, H)
 
@@ -235,7 +246,7 @@ def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
         pro.eval()
     else:
         cnn.to(device)
-        torch.save(cnn.state_dict(), 'model_{}.pt'.format(Str))
+#        torch.save(cnn.state_dict(), 'model_{}.pt'.format(Str))
 #    exit(0)
     loss_f = nn.CrossEntropyLoss()
     cnn.eval()
@@ -351,7 +362,7 @@ def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
                     Cnt[i][y] += 1
                     H[i][y] += entropy(Q, max_norm[i])
                     X[i][y] = []
-                H[i][y] /= Cnt[i][y]
+                H[i][y]/=Cnt[i][y]
     print(Str)
     print('Train Loss {:.4f}'.format(train_loss / len(train_loader)))
     print('Test Loss {:.4f}'.format(test_loss / len(test_loader)))
@@ -361,7 +372,7 @@ def est(cnn, mu, Str, fg,  pro=None, pos=None, H=None):
 
     if(fg == True):
         #        print(tr)
-        return tr/(len(train_loader)+len(test_loader)), train_loss/len(train_loader), test_loss/len(test_loader), train_correct/len(train_data), test_correct/len(test_data)
+        return tr/(len(train_loader)+len(test_loader))
 
 
 if __name__ == '__main__':
@@ -383,15 +394,21 @@ if __name__ == '__main__':
 #    est(cnn_2, 0, '2', False, H=H_2)
 #    np.savez('entropy.npz', H_1=H_1, H_2=H_2)
 
-#    H = np.load('entropy.npz')
-#    H_1 = H['H_1']
-#    H_2 = H['H_2']
-    H_1 = np.loadtxt('H_1.txt')
-    H_2 = np.loadtxt('H_2.txt')
-    if H_1.min() < 0:
-        H_1 += np.full((6, 10), 1-H_1.min())
-    if H_2.min() < 0:
-        H_2 += np.full((6, 10), 1-H_2.min())
+    H = np.load('entropy.npz')
+    H_1 = H['H_1']
+    H_2 = H['H_2']
+#    H_1 = np.loadtxt('H_1.txt')
+#    H_2 = np.loadtxt('H_2.txt')
+#    if H_1.min() < 0:
+#        H_1 += np.full((6, 10), 1-H_1.min())
+#    if H_2.min() < 0:
+#        H_2 += np.full((6, 10), 1-H_2.min())
+    for i in range(6):
+        for j in range(10):
+            if H_1[i][j]<1:
+                H_1[i][j]=math.exp((H_1[i][j]-1)/7000)
+            if H_2[i][j]<1:
+                H_2[i][j]=math.exp((H_2[i][j]-1)/7000)
 
     np.savetxt('H_1.txt', H_1, fmt='%17.7f', delimiter=' ')
     np.savetxt('H_2.txt', H_2, fmt='%17.7f', delimiter=' ')
@@ -406,22 +423,22 @@ if __name__ == '__main__':
     handle = pynvml.nvmlDeviceGetHandleByIndex(0)
     meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
     print(meminfo.used)
+#    exit(0)
 
 #    convert_ratio = np.zeros([6, 6])
 #    convert_ratio = np.load('convert_ratio.npy')
     convert_ratio = np.loadtxt('convert_ratio.txt')
     print(convert_ratio)
 
-#    exit(0)
 #    converter_data = np.zeros([21, 5])  # convert_ratio loss acc
-    converter_data=np.loadtxt('converter_epoch_data/converter_3_4_data.txt')
-    epoch_limit = 20
+#    converter_data=np.loadtxt('converter_epoch_data/converter_3_4_data.txt')
+#    epoch_limit = 20
 
-    for l in range(3, 5):
-        for r in range(4, 6):
+    for l in range(5, 5):
+        for r in range(l+1, 6):
             # mask l+1..r, l-->r
             cnn = CNN()
-            cnn.load_state_dict(torch.load('converter_epoch_data/model_{}_{}_{}.pt'.format(l,r,epoch_limit-1),map_location='cpu'))
+#            cnn.load_state_dict(torch.load('converter_epoch_data/model_{}_{}_{}.pt'.format(l,r,epoch_limit-1),map_location='cpu'))
 
             for k in range(l+1):
                 cnn.layers[k] = cnn_1.layers[k]
@@ -433,19 +450,13 @@ if __name__ == '__main__':
                 cnn.layers[k] = cnn_2.layers[k]
                 cnn_1.layers[k].to(torch.device('cpu'))
 
-            convert_ratio[l][r], converter_data[epoch_limit][1], converter_data[epoch_limit][2], converter_data[epoch_limit][3], converter_data[epoch_limit][4] = calc(cnn, 1, 'A->B_{}_{}_1'.format(l, r),
-                                                                                                                                                                               True, cnn_2, r)
-            torch.save(
-                cnn.state_dict(), 'converter_epoch_data/model_{}_{}_{}.pt'.format(l, r, epoch_limit))
+            convert_ratio[l][r] = calc(
+                cnn, 1, 'A->B_{}_{}_1'.format(l, r), True, cnn_2, r)
 
             handle = pynvml.nvmlDeviceGetHandleByIndex(0)
             meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
             print(meminfo.used)
-            converter_data[epoch_limit][0] = convert_ratio[l][r]
-
-            np.savetxt('converter_epoch_data/converter_{}_{}_data.txt'.format(l,r), converter_data,
-                       fmt='%.17f', delimiter=' ')
-            exit(0)
+#            converter_data[epoch_limit][0] = convert_ratio[l][r]
 
             cnn = CNN()
             for k in range(l+1):
@@ -458,8 +469,8 @@ if __name__ == '__main__':
                 cnn.layers[k] = cnn_1.layers[k]
                 cnn_2.layers[k].to(torch.device('cpu'))
 
-            convert_ratio[r][l] = calc(cnn, 1, 'B->A_{}_{}_1'.format(l, r),
-                                       True, cnn_1, r)
+            convert_ratio[r][l] = calc(
+                cnn, 1, 'B->A_{}_{}_1'.format(l, r), True, cnn_1, r)
             handle = pynvml.nvmlDeviceGetHandleByIndex(0)
             meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
             print(meminfo.used)
