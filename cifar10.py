@@ -68,6 +68,7 @@ class CNN(nn.Module):
             x = layer(x)
             self.feat.append(x.view(x.size(0), -1))
         output = self.out(x).view(x.size(0), 10)
+        self.feat.append(output)
         return output
 
     def forward_to(self, x, to):
