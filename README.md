@@ -9,4 +9,5 @@ Caution: If you use Ubuntu 16.04 with Python 3.5.2, torchvision 0.6.0 and torch 
 
 ## Use
 The data and the codes of converters and converter-entropy-based similarity estimation are in the "converter" folder.
+
 And the visualized results have been collected in "visualization".
