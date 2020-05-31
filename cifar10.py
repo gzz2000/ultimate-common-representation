@@ -10,8 +10,8 @@ device = torch.device('cuda')
 EPOCH = 20
 LR = 1e-3
 
-channel_size_1 = 16
-channel_size_2 = 32
+channel_size_1 = 32
+channel_size_2 = 96
 
 class CNN(nn.Module):
     def __init__(self):
@@ -66,7 +66,7 @@ class CNN(nn.Module):
         self.feat.clear()
         for layer in self.conv_layers:
             x = layer(x)
-            self.feat.append(x)
+            self.feat.append(x.view(x.size(0), -1))
         output = self.out(x).view(x.size(0), 10)
         return output
 
