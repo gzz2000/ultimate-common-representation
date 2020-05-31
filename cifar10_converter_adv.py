@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from tqdm import trange
 from data_cifar10 import *
-from cka import each_layer_pair_cka
 from cifar10 import CNN
 
 torch.manual_seed(721)

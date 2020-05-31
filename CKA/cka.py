@@ -33,12 +33,10 @@ if __name__ == '__main__':
 	cnn2 = CNN()
 	cnn2.to(device)
 	cnn2.eval()
-
-	dir = 'converter/untrained/'
-	cnn1.load_state_dict(torch.load('./models/CIFAR10/model_1.pt'))
-	cnn2.load_state_dict(torch.load('model_3.pt'))
+	cnn1.load_state_dict(torch.load('./models/CIFAR10_adv/advsc/model_epoch_9_1.pt'))
+	cnn2.load_state_dict(torch.load('./models/CIFAR10_adv/advsc/model_epoch_9_2.pt'))
 
 	print_acc(cnn1, 'A')
 	print_acc(cnn2, 'B')
-	print(each_layer_pair_cka(cnn1, cnn2))
-	#np.savetxt(dir + 'cka.txt', each_layer_pair_cka(cnn1, cnn2), fmt='%.17f')
+	#print(each_layer_pair_cka(cnn1, cnn2))
+	np.savetxt('./converter_adv_cka.txt', each_layer_pair_cka(cnn1, cnn2), fmt='%.17f')
