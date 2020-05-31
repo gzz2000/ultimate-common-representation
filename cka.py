@@ -33,7 +33,8 @@ if __name__ == '__main__':
 	cnn2.to(device)
 	cnn2.eval()
 
-	cnn1.load_state_dict(torch.load('model_1.pt'))
-	cnn2.load_state_dict(torch.load('model_2.pt'))
+	dir = 'converter/untrained/'
+	cnn1.load_state_dict(torch.load(dir + 'model_1.pt'))
+	cnn2.load_state_dict(torch.load(dir + 'model_2.pt'))
 
-	print(each_layer_pair_cka(cnn1, cnn2))
+	np.savetxt(dir + 'cka.txt', each_layer_pair_cka(cnn1, cnn2), fmt='%.17f')
